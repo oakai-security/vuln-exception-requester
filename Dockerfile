@@ -33,7 +33,5 @@ ENV VULN_REGISTER_PATH="/repo"
 RUN mkdir -p /run/oakai && chown -R vuln-req:oakai /run/oakai && chmod 770 /run/oakai
 
 USER vuln-req:oakai
-
-EXPOSE 0
 ENTRYPOINT ["vuln-exception-requester"]
 CMD ["serve"]
