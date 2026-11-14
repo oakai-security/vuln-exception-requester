@@ -165,6 +165,7 @@ class UdsRequestServer:
                 payload = [t.model_dump() for t in tickets]
                 client.sendall(json.dumps(payload).encode("utf-8"))
                 client.shutdown(socket.SHUT_WR)
+                client.recv(8192)
                 logger.info(
                     "Forwarded %d pending tickets to approver socket", len(tickets)
                 )

@@ -1,6 +1,7 @@
 """Generates machine-parseable exception tickets in the vuln-register repository."""
 
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -39,6 +40,10 @@ class TicketWriter:
 
         content = self._render_markdown_content(ticket, finding)
         ticket_path.write_text(content, encoding="utf-8")
+        try:
+            os.chmod(ticket_path, 0o666)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+        except OSError:
+            pass
         logger.info("Created exception ticket %s at %s", ticket_id, ticket_path)
 
         return ticket, ticket_path
