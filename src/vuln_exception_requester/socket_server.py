@@ -135,9 +135,13 @@ class UdsRequestServer:
                     )
 
                     ticket, _ = self.ticket_writer.create_exception_ticket(finding)
-                    self.register_manager.record_pending_exception(ticket)
-                    self.git_manager.commit_changes(ticket.id, ticket.cve_id)
                     filed_tickets.append(ticket)
+
+                if filed_tickets:
+                    self.register_manager.record_pending_exceptions_batch(filed_tickets)
+                    self.git_manager.commit_batch(
+                        f"chore(batch): file {len(filed_tickets)} exception requests [pending-review]"
+                    )
 
                 # Forward filed tickets downstream to Approver Agent
                 if filed_tickets and os.path.exists(self.downstream_socket):

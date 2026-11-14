@@ -145,3 +145,40 @@ def test_uds_socket_roundtrip(mocker):
         ticket_file = repo_dir / "tickets" / "EXC-0001.md"
         assert ticket_file.exists()
         assert "CVE-2024-38077" in ticket_file.read_text(encoding="utf-8")
+
+
+def test_batch_request_processing(mocker):
+    """Verify batch processing of multiple findings in a single atomic update."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        repo_dir = Path(temp_dir) / "repo"
+        repo_dir.mkdir()
+        reg_mgr = RegisterManager(repo_dir / "register")
+
+        tickets = [
+            ExceptionTicket(
+                id=f"EXC-{i:04d}",
+                cve_id=f"CVE-2024-{i:04d}",
+                package_name=f"pkg-{i}",
+                installed_version="1.0",
+                host="lejeune",
+                cvss_base=7.5,
+                epss_score=0.01,
+                in_memory=False,
+                threat_level="LOW",
+                status="PENDING_REVIEW",
+                reason="Testing batch",
+            )
+            for i in range(1, 6)
+        ]
+
+        entries = reg_mgr.record_pending_exceptions_batch(tickets)
+        assert len(entries) == 5
+
+        with open(reg_mgr.json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            assert data["total_tracked"] == 5
+            assert data["pending_review"] == 5
+
+        md = reg_mgr.md_path.read_text(encoding="utf-8")
+        for i in range(1, 6):
+            assert f"CVE-2024-{i:04d}" in md

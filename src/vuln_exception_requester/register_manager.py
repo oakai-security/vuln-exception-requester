@@ -18,38 +18,46 @@ class RegisterManager:
         self.md_path = self.register_dir / "vulnerability_register.md"
         self.register_dir.mkdir(parents=True, exist_ok=True)
 
-    def record_pending_exception(self, ticket: ExceptionTicket) -> RegisterEntry:
-        """Add or update an entry in the register with PENDING_REVIEW status."""
-        entry = RegisterEntry(
-            cve_id=ticket.cve_id,
-            package_name=ticket.package_name,
-            installed_version=ticket.installed_version,
-            host=ticket.host,
-            cvss_base=ticket.cvss_base,
-            epss_score=ticket.epss_score,
-            in_memory=ticket.in_memory,
-            status="PENDING_REVIEW",
-            expiration="PENDING_APPROVAL",
-            ticket_ref=ticket.id,
-        )
+    def record_pending_exceptions_batch(
+        self, tickets: list[ExceptionTicket]
+    ) -> list[RegisterEntry]:
+        """Add or update multiple entries in the register in a single atomic write."""
+        if not tickets:
+            return []
 
         data = self._load_json_register()
         vulnerabilities = data.get("vulnerabilities", [])
+        created_entries: list[RegisterEntry] = []
 
-        # Update existing entry or append
-        updated = False
-        for idx, item in enumerate(vulnerabilities):
-            if (
-                item.get("cve_id") == entry.cve_id
-                and item.get("package_name") == entry.package_name
-                and item.get("host") == entry.host
-            ):
-                vulnerabilities[idx] = entry.model_dump()
-                updated = True
-                break
+        for ticket in tickets:
+            entry = RegisterEntry(
+                cve_id=ticket.cve_id,
+                package_name=ticket.package_name,
+                installed_version=ticket.installed_version,
+                host=ticket.host,
+                cvss_base=ticket.cvss_base,
+                epss_score=ticket.epss_score,
+                in_memory=ticket.in_memory,
+                status="PENDING_REVIEW",
+                expiration="PENDING_APPROVAL",
+                ticket_ref=ticket.id,
+            )
+            created_entries.append(entry)
 
-        if not updated:
-            vulnerabilities.append(entry.model_dump())
+            # Update existing entry or append
+            updated = False
+            for idx, item in enumerate(vulnerabilities):
+                if (
+                    item.get("cve_id") == entry.cve_id
+                    and item.get("package_name") == entry.package_name
+                    and item.get("host") == entry.host
+                ):
+                    vulnerabilities[idx] = entry.model_dump()
+                    updated = True
+                    break
+
+            if not updated:
+                vulnerabilities.append(entry.model_dump())
 
         data["vulnerabilities"] = vulnerabilities
         data["total_tracked"] = len(vulnerabilities)
@@ -63,10 +71,14 @@ class RegisterManager:
         self._save_json_register(data)
         self._sync_markdown_register(vulnerabilities)
         logger.info(
-            "Recorded %s in vulnerability register (%s)", entry.cve_id, entry.ticket_ref
+            "Recorded batch of %d vulnerabilities in register", len(created_entries)
         )
+        return created_entries
 
-        return entry
+    def record_pending_exception(self, ticket: ExceptionTicket) -> RegisterEntry:
+        """Add or update an entry in the register with PENDING_REVIEW status."""
+        entries = self.record_pending_exceptions_batch([ticket])
+        return entries[0]
 
     def _load_json_register(self) -> dict:
         """Load JSON register or return empty baseline."""
