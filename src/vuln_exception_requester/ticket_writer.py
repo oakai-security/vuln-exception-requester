@@ -39,6 +39,7 @@ class TicketWriter:
         )
 
         content = self._render_markdown_content(ticket, finding)
+        self.tickets_dir.mkdir(parents=True, exist_ok=True)
         ticket_path.write_text(content, encoding="utf-8")
         try:
             os.chmod(ticket_path, 0o666)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
