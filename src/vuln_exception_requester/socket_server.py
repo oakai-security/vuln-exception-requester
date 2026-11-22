@@ -129,6 +129,7 @@ class UdsRequestServer:
                             "epss_percentile", finding_dict["epss_score"]
                         ),
                         in_memory=finding_dict["in_memory"],
+                        memory_visibility=finding_dict.get("memory_visibility", "partial"),
                         threat_level=finding_dict["threat_level"],
                         verdict_rationale=finding_dict["verdict_rationale"],
                         remediation_attempt_summary=remediation_summary,
