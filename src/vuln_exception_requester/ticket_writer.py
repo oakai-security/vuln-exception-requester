@@ -20,8 +20,11 @@ class TicketWriter:
     def create_exception_ticket(
         self, finding: UnresolvedFindingInput
     ) -> tuple[ExceptionTicket, Path]:
-        """Generate a new EXC-XXXX.md ticket for an unfixable vulnerability."""
-        ticket_id = self._get_next_ticket_id()
+        """Generate or update an EXC-XXXX.md ticket for an unfixable vulnerability."""
+        existing_id = self._find_existing_ticket_id(
+            finding.cve_id, finding.package_name
+        )
+        ticket_id = existing_id or self._get_next_ticket_id()
         ticket_path = self.tickets_dir / f"{ticket_id}.md"
 
         ticket = ExceptionTicket(
@@ -33,6 +36,7 @@ class TicketWriter:
             cvss_base=finding.cvss_base,
             epss_score=finding.epss_score,
             in_memory=finding.in_memory,
+            memory_visibility=finding.memory_visibility,
             threat_level=finding.threat_level,
             status="PENDING_REVIEW",
             reason=finding.verdict_rationale,
@@ -45,9 +49,26 @@ class TicketWriter:
             os.chmod(ticket_path, 0o666)  # nosemgrep: python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
         except OSError:
             pass
-        logger.info("Created exception ticket %s at %s", ticket_id, ticket_path)
+        logger.info("Wrote exception ticket %s at %s", ticket_id, ticket_path)
 
         return ticket, ticket_path
+
+    def _find_existing_ticket_id(self, cve_id: str, package_name: str) -> str | None:
+        """Check if a ticket already exists for (cve_id, package_name) to avoid duplicates."""
+        if not self.tickets_dir.exists():
+            return None
+
+        pattern = re.compile(r"^EXC-(\d{4,})\.md$")
+        for file in sorted(self.tickets_dir.iterdir()):
+            if not pattern.match(file.name):
+                continue
+            try:
+                head = file.read_text(encoding="utf-8", errors="ignore")[:800]
+                if f"cve_id: {cve_id}" in head and f"package_name: {package_name}" in head:
+                    return file.stem
+            except OSError:
+                continue
+        return None
 
     def _get_next_ticket_id(self) -> str:
         """Scan tickets_dir for existing EXC-XXXX.md files and return next identifier."""
@@ -77,6 +98,7 @@ host: {ticket.host}
 cvss_base: {ticket.cvss_base}
 epss_score: {ticket.epss_score}
 in_memory: {str(ticket.in_memory).lower()}
+memory_visibility: {ticket.memory_visibility}
 threat_level: {ticket.threat_level}
 status: {ticket.status}
 requested_by: {ticket.requested_by}

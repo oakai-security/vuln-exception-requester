@@ -16,6 +16,7 @@ class UnresolvedFindingInput(BaseModel):
     epss_score: float = Field(..., ge=0.0, le=1.0)
     epss_percentile: float = Field(..., ge=0.0, le=1.0)
     in_memory: bool
+    memory_visibility: str = "partial"
     threat_level: str
     verdict_rationale: str
     remediation_attempt_summary: str = ""
@@ -39,6 +40,7 @@ class ExceptionTicket(BaseModel):
     cvss_base: float
     epss_score: float
     in_memory: bool
+    memory_visibility: str = "partial"
     threat_level: str
     status: str = Field(default="PENDING_REVIEW")
     requested_by: str = Field(default="vuln-exception-requester")
